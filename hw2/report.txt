@@ -1,0 +1,79 @@
+SERVER:
+1) The server checks explicitly for the correct input and will not
+advance otherwise, input is of the form:
+
+server --port=1234
+
+The port number (which in this example case is 1234) is extracted for
+later use.
+
+2) Set the ctx (context structure) for Deffie-Hellman, disable
+certificates, and set cipher list to 'ADH' for anonymous Deffie-Hellman.
+Extract the private and public keys from the .pem files.
+
+3) Create BIO and bind it to an SSL structure.
+
+4) Connect to Client, receive an encrypted random challenge.
+
+5) Decrupt this challenge using the private key, hash it using SHA1, and
+sign it; send this signed hash to the client.
+
+6) After successful authentication proceed with file requests.
+
+------------------------------------------------------------------------
+
+CLIENT:
+1) The client, much like the server, will check for the correct input
+and will not advance otherwise, the input has two forms:
+
+client --serverAddress=111.111.111.111 --port=1234 --send ./file
+client --serverAddress=111.111.111.111 --port=1234 --receive ./file
+
+Where the server address and port number are extracted and the send or
+receive decide what you want to do with the respected file that follows.
+
+2) Set the ctx (much like the server) for Deffie-Hellman, disable
+certificates, and set cipher list to 'ADH' for anonymous Deffie-Hellman,
+extract the public key from the .pem file.
+
+3) Create BIO and bind to SSL structure.
+
+4) Generate a random number (with seed initialized adequately); this 
+will be the challenge.
+
+5) Hash a copy of this challenge using SHA1 (for later use).
+
+6) Encrypt a second copy of the challenge and send it to server.
+
+7) Obtain the signed hash from server, decrypyt using public key, 
+compare both the hash created in the client with the hash created in the
+server; this is the authentication.
+
+8) Proceed with file requests if authentication successful.
+
+------------------------------------------------------------------------
+
+Troubleshooting:
+- Server not accepting client
+	Error: no shared cipher
+  Solution: had to initialize a DH * and call SSL_CTX_set_tmp_dh()
+
+- RSA_public_encrypt() needs const cstring parameters
+  Solution: typecast the parameters in question(will it be source of 
+  more errors later on?)
+  
+- Segmentation fault when getting size of RSA public key in client
+  Solution: function call to read RSA key changed from
+  PEM_read_bio_RSA_public_key() to PEM_read_bio_RSA_PUBKEY()
+  
+- RSA_public_encrypt() creates an empty encrypted string (i.e. the 
+  string that is supposed to store the encryption using the public key
+  remains empty)
+  Solution: RSA key was too small
+
+- Signed challenge decryption not working(get empty string or wrong 
+  string.
+  Solution: Need to work in base64 (since encryption uses entire ascii
+  set which includes non-printable characters)
+  
+------------------------------------------------------------------------
